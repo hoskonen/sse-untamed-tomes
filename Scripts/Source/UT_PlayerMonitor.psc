@@ -147,14 +147,25 @@ Event OnItemAdded(Form akBaseItem, int aiCount, ObjectReference akItemRef, Objec
         Debug.Trace("[UntamedTomes] Tome context = " + ctx)
     endif
 
-        ; --- Debug: mark context as SAFE / UNSAFE ---
+      ; --- Debug: mark context as SAFE / UNSAFE ---
     if DebugOn()
         Bool safe = UT_IsSafeTomeContext()
+
+        String label = "Unsafe"
         if safe
-            Debug.Trace("[UntamedTomes] Tome context is SAFE")
-        else
-            Debug.Trace("[UntamedTomes] Tome context is UNSAFE")
+            label = "Safe"
         endif
+
+        Debug.Notification("Untamed Tomes: context is " + label)
+        Debug.Trace("[UntamedTomes] Tome context is " + label)
+    endif
+
+         ; --- Context-based safety gate (shops / inns / towns) ---
+    if UT_IsSafeTomeContext()
+        if DebugOn()
+            Log("Safe context detected (" + UT_GetTomeLocationContext() + "), skipping Untamed logic.")
+        endif
+        return
     endif
 
     ; 2) Exclusions
@@ -165,6 +176,14 @@ Event OnItemAdded(Form akBaseItem, int aiCount, ObjectReference akItemRef, Objec
             Log("Tome marked safe via UT_TomeSafe keyword, skipping.")
             return
         endif
+    endif
+
+    ; --- Context-based safety gate (shops / inns / towns) ---
+    if UT_IsSafeTomeContext()
+        if DebugOn()
+            Log("Safe context detected, skipping Untamed logic.")
+        endif
+        return
     endif
 
     ; 2b) In explicit exclusion list
