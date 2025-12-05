@@ -29,6 +29,11 @@ Bool Function DebugOn()
     return UT_DebugEnabled.GetValueInt() != 0
 EndFunction
 
+Bool Function UT_IsBarterMenuOpen()
+    ; Uses the built-in UI script: IsMenuOpen("BarterMenu")
+    return UI.IsMenuOpen("BarterMenu")
+EndFunction
+
 Function Log(string msg)
     if DebugOn()
         Debug.Trace("[UntamedTomes] " + msg)
@@ -92,17 +97,19 @@ String Function UT_GetTomeLocationContext()
 EndFunction
 
 Bool Function UT_IsSafeTomeContext()
+    ; 0) Trading menu open? Treat as safe, regardless of location.
+    if UT_IsBarterMenuOpen()
+        return true
+    endif
+
     String ctx = UT_GetTomeLocationContext()
 
-    ; First pass: civilized places are safe
     if ctx == "town"
         return true
     endif
-
     if ctx == "inn"
         return true
     endif
-
     if ctx == "store"
         return true
     endif
@@ -145,6 +152,13 @@ Event OnItemAdded(Form akBaseItem, int aiCount, ObjectReference akItemRef, Objec
         String msg = "Untamed Tomes: this tome is in " + ctx
         Debug.Notification(msg)
         Debug.Trace("[UntamedTomes] Tome context = " + ctx)
+    endif
+
+        ; --- Debug: detect bartering context ---
+    if DebugOn()
+        if UT_IsBarterMenuOpen()
+            Debug.Trace("[UntamedTomes] BarterMenu is open when tome was added.")
+        endif
     endif
 
       ; --- Debug: mark context as SAFE / UNSAFE ---
