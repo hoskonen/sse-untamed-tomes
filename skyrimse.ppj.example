@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<PapyrusProject xmlns="PapyrusProject.xsd"
+    Flags="TESV_Papyrus_Flags.flg"
+    Game="sse"
+    Anonymize="true"
+    Output="Scripts"
+    Optimize="false"
+    Release="false"
+    Zip="false"
+    Package="false"
+    Final="false">
+    <Variables>
+        <Variable Name="GameFolder" Value="PATH_TO_SKYRIM_SE" />
+        <Variable Name="SkseSources" Value="PATH_TO_SKSE_DATA_SCRIPTS_SOURCE" />
+        <Variable Name="SkyUiSources" Value="PATH_TO_SKYUI_DIST_DATA_SCRIPTS_SOURCE" />
+        <Variable Name="PapyrusExtenderSources" Value="PATH_TO_PAPYRUS_EXTENDER_SOURCE_SCRIPTS" />
+    </Variables>
+    <Imports>
+        <Import>@SkseSources</Import>
+        <Import>@SkyUiSources</Import>
+        <Import>@GameFolder\Data\Scripts\Source</Import>
+        <Import>@PapyrusExtenderSources</Import>
+    </Imports>
+    <Folders>
+        <Folder>./Scripts/Source</Folder>
+    </Folders>
+</PapyrusProject>

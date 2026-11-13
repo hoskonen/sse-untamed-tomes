@@ -1,5 +1,5 @@
 .vscode
 *.esp
 Scripts/*.pex
-/docs/
+/skyrimse.ppj
 /tests/
