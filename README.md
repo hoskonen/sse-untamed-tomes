@@ -10,7 +10,13 @@ Untamed Tomes is a Skyrim Special Edition / Anniversary Edition mod in developme
 - The SkyUI MCM script exposes enable and debug toggles and the Magicka threshold.
 - The progression classifier captures a first-pickup baseline for player level and six base magic skills. Debug logging records its observations. Tome rejection still uses base Magicka.
 
-Both Papyrus scripts compile. The repository contains a snapshot of the MO2 development ESP. The imported snapshot contains only the TES4 header, so the quests, player alias and property bindings needed for runtime testing are still missing. Delayed backlash and reliable purchase attribution are planned.
+Both Papyrus scripts compile. The repository contains a snapshot of the reconstructed MO2 development ESP with the main and MCM quests and shared settings. Skyrim runtime verification remains pending. Delayed backlash and reliable purchase attribution are planned.
+
+## MCM configuration
+
+`UT_MCM` reads and writes three mutable ESP globals. `UT_PlayerMonitor` reads the same records when processing pickups. Assign `UT_ModEnabled`, `UT_MagickaThreshold`, and `UT_DebugEnabled` on both scripts to their respective shared records. The menu rebuilds its option IDs internally. Leave SkyUI's `Pages` empty for the single unnamed page, and let `OnConfigInit` set `ModName`. The existing matching `ModName` override is harmless. SkyUI supplies `CurrentPage` and its constants.
+
+Add future settings through the existing globals when both scripts need the value. The [configuration audit](docs/04-mcm-configuration.md) explains the decision, the recorded defaults, and the remaining runtime checks.
 
 ## Build setup
 
@@ -87,7 +93,7 @@ You can also run `& .\tools\Snapshot-EspFromMO2.ps1` from the repository root in
 
 ## Roadmap
 
-1. Recover or reconstruct the historical quest, alias and MCM records and verify the wiring in an isolated test profile.
+1. Verify the reconstructed quest, alias and MCM wiring in an isolated test profile.
 2. Verify baseline capture and save/load behavior before integrating the classifier into tome eligibility.
 3. Prototype delayed backlash and test inventory event handling.
 4. Investigate tome spell metadata, magical effects and merchant purchase attribution.
