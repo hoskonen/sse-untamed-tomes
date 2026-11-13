@@ -21,12 +21,56 @@ Keyword Property LocTypeDungeon Auto
 
 FormList      Property UT_TomeExclusions    Auto ; manual exclusion list
 
+; Saved with the player alias script instance.
+Int UT_BaselineLevel
+Float UT_BaselineMagicSum
+Bool UT_BaselineInitialized
 
 Bool Function DebugOn()
     if UT_DebugEnabled == None
         return false
     endif
     return UT_DebugEnabled.GetValueInt() != 0
+EndFunction
+
+Float Function UT_GetMagicSkillSum(Actor player)
+    Float magicSum = player.GetBaseActorValue("Destruction")
+    magicSum += player.GetBaseActorValue("Conjuration")
+    magicSum += player.GetBaseActorValue("Restoration")
+    magicSum += player.GetBaseActorValue("Illusion")
+    magicSum += player.GetBaseActorValue("Alteration")
+    magicSum += player.GetBaseActorValue("Enchanting")
+    return magicSum
+EndFunction
+
+Function UT_EnsureBaseline(Actor player)
+    if player == None || UT_BaselineInitialized
+        return
+    endif
+
+    UT_BaselineLevel = player.GetLevel()
+    UT_BaselineMagicSum = UT_GetMagicSkillSum(player)
+    UT_BaselineInitialized = true
+EndFunction
+
+Bool Function UT_IsClearlyNonMage(Actor player)
+    if player == None || !UT_BaselineInitialized
+        return false
+    endif
+
+    Int currentLevel = player.GetLevel()
+    Float currentMagicSum = UT_GetMagicSkillSum(player)
+    Int levelDelta = currentLevel - UT_BaselineLevel
+    Float magicDelta = currentMagicSum - UT_BaselineMagicSum
+    Bool isNonMage = levelDelta >= 3 && magicDelta <= 10.0
+
+    if DebugOn()
+        String msg = "Baseline level=" + UT_BaselineLevel + " magic sum=" + UT_BaselineMagicSum
+        msg += " | Current level=" + currentLevel + " magic sum=" + currentMagicSum
+        msg += " | Level delta=" + levelDelta + " Magic delta=" + magicDelta
+        Debug.Trace("[UntamedTomes] Progression | " + msg + " | Non-mage=" + isNonMage)
+    endif
+    return isNonMage
 EndFunction
 
 Bool Function UT_IsBarterMenuOpen()
@@ -233,6 +277,10 @@ Event OnItemAdded(Form akBaseItem, int aiCount, ObjectReference akItemRef, Objec
     if player == None
         return
     endif
+
+    ; Observe progression without using the result for tome eligibility.
+    UT_EnsureBaseline(player)
+    UT_IsClearlyNonMage(player)
 
     float threshold = 0.0
     if UT_MagickaThreshold != None

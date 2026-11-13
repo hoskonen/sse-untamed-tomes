@@ -13,22 +13,24 @@
         <!-- Set the name of your mod: -->
         <Variable Name="ModName" Value="Untamed Tomes" />
         <!-- The folder where you store all of your mods -->
-        <Variable Name="ModsFolder" Value="F:\Modding\Mod Organizer\Skyrim Special Edition\mods" />
+        <Variable Name="ModsFolder" Value="D:\Modding\Ancestries\mods" />
         <Variable Name="GameFolder" Value="D:\Steam\steamapps\common\Skyrim Special Edition" />
-        <Variable Name="Shared" Value="F:\Modding\PapyrusShared" />
+        <Variable Name="Shared" Value="D:\Modding\Papyrus\Shared" />
     </Variables>
-    <Imports>
+     <Imports>
         <!-- SKSE -->
         <Import>@Shared\skse64\Data\Scripts\Source</Import>
         
+        <!-- SkyUI MCM Papyrus sources -->
+        <Import>@Shared\skyui-master\dist\Data\Scripts\Source</Import>
+
         <!-- Core game sources -->
-        <Import>@GameFolder\Data\Source\Scripts</Import>
         <Import>@GameFolder\Data\Scripts\Source</Import>
 
-        <!-- Optional: a shared folder where you keep third-party .psc stubs -->
-        <Import>@Shared</Import>
+        <!-- Shared third-party / custom stubs -->
+        <Import>D:\Modding\Papyrus\Shared</Import>
 
-        <!-- PO3 Papyrus Extender stubs (the folder that contains PO3_SKSEFunctions.psc) -->
+        <!-- PO3 Papyrus Extender -->
         <Import>@ModsFolder\powerofthree's Papyrus Extender\Source\scripts</Import>
     </Imports>
     <Folders>
@@ -55,7 +57,4 @@
         </ZipFile>
     </ZipFiles>
     <!-- This will remove any *.bsa files in this directory *after* the build, if there are any. Set UseInBuild="false" to disable. -->
-    <PostBuildEvent Description="Post-Build Remove BSA Files" UseInBuild="true">
-        <Command>del /s /q /f *.bsa</Command>
-    </PostBuildEvent>
 </PapyrusProject>
