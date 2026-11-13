@@ -8,9 +8,9 @@ Untamed Tomes is a Skyrim Special Edition / Anniversary Edition mod. Wild spell 
 | --- | --- |
 | [UT_PlayerMonitor.psc](../Scripts/Source/UT_PlayerMonitor.psc) | A `ReferenceAlias` script designed to receive the player's `OnItemAdded` events. It identifies tomes, applies safety gates and silently removes one copy when base Magicka is below the configured threshold. |
 | [UT_MCM.psc](../Scripts/Source/UT_MCM.psc) | A SkyUI `SKI_ConfigBase` script with enable and debug toggles and a Required Magicka slider. It writes the globals read by the monitor. |
-| ESP | Supplies quests, alias, script attachments and property values. The checkout contains no plugin. The [audit](02-current-state-audit.md) records the expected bindings. |
+| [ESP snapshot](../UntamedTomes.esp) | Versioned copy of the MO2 development plugin. The imported file contains only the TES4 header. The [audit](02-current-state-audit.md) records the expected runtime bindings. |
 | [skyrimse.ppj.example](../skyrimse.ppj.example) | Template for an ignored local `skyrimse.ppj`. Inputs are under `Scripts/Source`, compiled output targets `Scripts`, and packaging and zip generation are disabled. |
-| [SkyrimSE.code-workspace](../SkyrimSE.code-workspace), [meta.ini](../meta.ini), [.gitignore](../.gitignore) | VS Code Papyrus language settings, placeholder mod-manager metadata, and ignore rules for ESPs, compiled PEX files and local developer settings. |
+| [SkyrimSE.code-workspace](../SkyrimSE.code-workspace), [meta.ini](../meta.ini), [.gitignore](../.gitignore) | VS Code Papyrus language settings, placeholder mod-manager metadata, and ignore rules for compiled PEX files and local developer settings. |
 
 ## Build and runtime requirements
 

@@ -10,7 +10,7 @@ Untamed Tomes is a Skyrim Special Edition / Anniversary Edition mod in developme
 - The SkyUI MCM script exposes enable and debug toggles and the Magicka threshold.
 - The progression classifier captures a first-pickup baseline for player level and six base magic skills. Debug logging records its observations. Tome rejection still uses base Magicka.
 
-Both Papyrus scripts compile. The repository lacks the ESP containing the quests, player alias and property bindings required to run the mod. Skyrim runtime verification remains pending. Delayed backlash and reliable purchase attribution are planned.
+Both Papyrus scripts compile. The repository contains a snapshot of the MO2 development ESP. The imported snapshot contains only the TES4 header, so the quests, player alias and property bindings needed for runtime testing are still missing. Delayed backlash and reliable purchase attribution are planned.
 
 ## Build setup
 
@@ -39,9 +39,55 @@ Check the build summary for two successes and verify that `Scripts\UT_PlayerMoni
 
 Task 03 verified a fresh build with the official dependency sources and no compiler warnings or errors. The sandboxed run failed while loading `Antlr3.Runtime`. The same installed compiler worked outside the sandbox. An earlier staging run also produced Pyro path warnings when the project and imports were on different drives. The verified build used staging on the dependency drive.
 
+## Deploy to Mod Organizer 2
+
+Create or select an existing Untamed Tomes mod folder in MO2. In the repository, create the ignored file `.vscode/mo2-deploy.json` with the absolute path to that mod folder. Forward slashes work in the JSON path.
+
+```json
+{
+  "destination": "D:/path/to/MO2/mods/Untamed Tomes"
+}
+```
+
+Add this entry to the `tasks` array in your local `.vscode/tasks.json`, alongside the Pyro task. It uses the Windows PowerShell executable by absolute path and sets the execution policy for that process.
+
+```json
+{
+  "label": "Deploy to MO2",
+  "type": "process",
+  "command": "${env:SystemRoot}/System32/WindowsPowerShell/v1.0/powershell.exe",
+  "args": ["-NoProfile", "-ExecutionPolicy", "RemoteSigned", "-File", "${workspaceFolder}/tools/Deploy-ToMO2.ps1"],
+  "problemMatcher": []
+}
+```
+
+Compile first. Once Pyro succeeds, use **Tasks: Run Task → Deploy to MO2**, or run `& .\tools\Deploy-ToMO2.ps1` from the repository root in PowerShell. The deploy task runs only when selected.
+
+The script validates both compiled inputs before copying `UT_PlayerMonitor.pex` and `UT_MCM.pex` into the mod's `Scripts` directory. It overwrites only those two files and leaves existing files such as MO2's `meta.ini` in place. The resulting PEX files still require an ESP with the correct script bindings for in-game use.
+
+## Snapshot the ESP from MO2
+
+Edit Papyrus sources in the repository, compile them, then deploy the PEX files to MO2. Edit the active ESP in the MO2 development mod through Creation Kit or xEdit. After saving and closing the plugin, use **Tasks: Run Task → Snapshot ESP from MO2**. Review and commit the resulting `UntamedTomes.esp` in the repository. Git stores versioned snapshots, and MO2 remains the active editing location.
+
+The snapshot uses the same local `.vscode/mo2-deploy.json` configuration. Set `"espFile": "Untamed Tomes.esp"` if the MO2 filename contains a space. The default source filename is `UntamedTomes.esp`. Both map to the repository's `UntamedTomes.esp`, regardless of the name used in MO2.
+
+Add this entry to the local VS Code `tasks` array.
+
+```json
+{
+  "label": "Snapshot ESP from MO2",
+  "type": "process",
+  "command": "${env:SystemRoot}/System32/WindowsPowerShell/v1.0/powershell.exe",
+  "args": ["-NoProfile", "-ExecutionPolicy", "RemoteSigned", "-File", "${workspaceFolder}/tools/Snapshot-EspFromMO2.ps1"],
+  "problemMatcher": []
+}
+```
+
+You can also run `& .\tools\Snapshot-EspFromMO2.ps1` from the repository root in PowerShell. The task prints both paths and verifies SHA-256. If the repository copy differs, type `SNAPSHOT` to replace it. Matching files require no write. Compilation and PEX deployment run independently, and the snapshot reads the MO2 plugin without writing to it.
+
 ## Roadmap
 
-1. Recover the ESP and verify quest, alias and MCM wiring in an isolated test profile.
+1. Recover or reconstruct the historical quest, alias and MCM records and verify the wiring in an isolated test profile.
 2. Verify baseline capture and save/load behavior before integrating the classifier into tome eligibility.
 3. Prototype delayed backlash and test inventory event handling.
 4. Investigate tome spell metadata, magical effects and merchant purchase attribution.

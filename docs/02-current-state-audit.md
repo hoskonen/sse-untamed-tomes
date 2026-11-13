@@ -1,6 +1,6 @@
 # Current state audit
 
-Task 01 audited all six tracked files at `1464bca`, when the experimental branch and local `main` pointed to the same commit. This audit also reflects the classifier restored in Task 02 and build verification from Task 03. Git ignores locally produced PEX files and ESPs. The repository still lacks the ESP needed for runtime verification. Other installations, backups and mod-manager profiles remain unverified.
+Task 01 audited all six tracked files at `1464bca`, when the experimental branch and local `main` pointed to the same commit. This audit also reflects the classifier restored in Task 02 and build verification from Task 03. Git ignores locally produced PEX files. Task 04 imported the MO2 development ESP as a versioned snapshot. It contains only the TES4 header, so the records needed for runtime verification are still missing. Other installations, backups and mod-manager profiles remain unverified.
 
 ## Source behavior and historical differences
 

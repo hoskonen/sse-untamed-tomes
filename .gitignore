@@ -1,5 +1,4 @@
 .vscode
-*.esp
 Scripts/*.pex
 /skyrimse.ppj
 /tests/
