@@ -1,0 +1,47 @@
+# Investigation 10 — Coordinated tome protection
+
+## Decision and current blocker
+
+No current boundary can reliably associate Read Or Take's pickup with a later Papyrus `OnItemAdded` invocation or identify an individual inventory copy. The notification can carry zero source and reference; Papyrus may run after the read. A BOOK FormID, thread or timestamp is a candidate correlation, not an identity. In the 08F active-policy world READ, native denial returned false but Papyrus removed a copy about 0.9 seconds later. The existing handlers cannot safely coexist as independent owners of the same acquisition.
+
+The minimal integration should have **one authoritative native transaction coordinator** for each supported acquisition path and read attempt. Papyrus remains responsible for MCM and deferred presentation, and does not independently remove items in paths owned by native code. This requires an explicit, versioned ownership handshake, not a time-limited base-form exemption. Do not activate that handshake until native acquisition coverage and failover are verified: disabling Papyrus globally with partial native coverage silently loses protection. A migration needs a coherent mode transition on load and a clear fallback if native initialization or hooks fail.
+
+## Interaction contract
+
+| Interaction | Decision and completion | Ownership and unresolved boundary |
+| --- | --- | --- |
+| World TAKE | Acquisition authorization at a verified pre-commit boundary; complete on observed commit or explicit cancellation. One acquisition outcome may schedule one backlash. | Native coordinator owns the transaction where a verified caller exposes selected reference, count and cancellation semantics. Current activation notification is not a veto. |
+| World READ | At a verified outer world interaction boundary establish a scoped interaction before pickup. Evaluate acquisition and reading separately; complete only after caller's pickup and read outcomes are known. A denied read may leave a transferred tome in inventory. | Native coordinator owns both decisions for that interaction; Papyrus must not independently reject its resulting pickup. Read-entry alone occurs after Read Or Take's pickup and cannot synchronously suppress an already queued Papyrus event. |
+| Inventory READ | Evaluate at `TESObjectBOOK::Read` entry against a synchronous policy snapshot. Allow calls the original once; deny returns the caller-validated unsuccessful value. Complete after original return or denial. | Native read coordinator; no acquisition removal. Revalidate player/book and treat unsupported contexts as unavailable. |
+| Successful acquisition, later read | If the design chooses one protection per physical copy, a later read is AlreadyHandled only with durable evidence tied to that copy. Otherwise perform a separate reading evaluation or use the explicit unavailable policy. | Current base-form and count events cannot establish continuity; no permanent base-form exemption. |
+| Repeated denial | Each read is a new attempt. A denial does not itself consume a copy or create a successful-handling record. Suppress repeat backlash only if a separately defined, reliably scoped attempt token establishes it is the same attempt. | Native owns read outcome; no invented deduplication based on elapsed time. |
+| Identical copies and stacks | A stack or transfer with no stable per-copy identity cannot support AlreadyHandled for an individual copy. | Do not apply a successful result to all copies. Quest/ownership metadata and stack splits require separate verification. |
+| Save/reload | Finish or invalidate in-flight interaction records on transitions. Persist only validated durable instance identities and versioned outcomes; otherwise discard transient tokens. | No raw pointers or unverified tokens survive reload. A loaded copy with ambiguous history is unavailable under same-copy semantics. |
+
+An attempt's authorization, a committed inventory operation, and effect delivery are separate states. Suggested state machine: `Created → ContextVerified → Evaluated → {Allowed, Denied, Unavailable} → {Committed, Cancelled, Unresolved} → Completed`; only a confirmed terminal transition can enqueue a single effect, keyed by a genuine interaction ID. An interrupted or ambiguous transition becomes `Unresolved`, not a fabricated success. Ownership and crime are engine facts to verify at the relevant boundary; neither book owner nor menu openness proves lawful acquisition.
+
+## Decision interface
+
+`Evaluate(snapshot, interaction)` returns `Allow`, `Deny`, `Unavailable`, or `AlreadyHandled(evidence)`; `AlreadyHandled` is legal only for a verified prior success on the same physical copy or a demonstrably identical in-flight operation. Inputs available synchronously must include a validated player/reader and live book/spell, interaction kind and origin where established, immutable settings and policy version, and the identity evidence required by the policy. A prepublished immutable snapshot may contain settings and safe precomputed record data. Worker callbacks must not query arbitrary player state, UI, Papyrus VM, or wait for main-thread work. If needed state cannot be safely obtained, return `Unavailable`.
+
+Proposed initial unavailable behavior is **forward vanilla read and perform no native penalty**, while preserving the existing Papyrus-only behavior when the native ownership handshake is absent. Under native ownership, no Papyrus removal may race the native decision. This fail-open behavior deliberately trades coverage for avoiding an unsupported veto or double penalty. It does not claim an already handled copy. Effects and UI notifications may be queued after the decision, using bounded data and a stable generation; revalidate on a verified engine thread and discard on load changes.
+
+## Candidate coordination boundaries
+
+- **Outer activation wrapper:** potentially scopes Read Or Take's pickup and read as one operation if installed and chained correctly. Its vtable replacement can conflict with other mods; establish actual caller, per-thread context, lifetime, nested/reentrant activations, return semantics and load order. A token scoped to the wrapper is evidence of that call only; it cannot by itself be passed to an asynchronous Papyrus event.
+- **Synchronous native context:** thread-local context around a verified outer call can correlate nested callbacks only while execution remains on the same thread. Cross-thread dispatch, queued events and overlapping requests break that assumption. Never treat thread identity as copy identity.
+- **Native-to-Papyrus token:** a bounded token is useful only if the producer attaches an unforgeable operation ID to a corresponding event and Papyrus can consume it exactly once before any removal. The current event signature has no such ID; a lookup by base form and time is unsafe. Overflow, load, timeout and unmatched cases must explicitly fall back without suppressing unrelated items.
+- **Native-owned pickup:** move policy to individually verified world, container, Take All, barter and scripted-grant boundaries, then retire Papyrus removal only for proven ownership coverage. This is the recommended direction, but the pre-commit cancellation and exact stack semantics remain unverified. A partial destination-add veto can destroy items after a source decrement.
+
+## Diagnostics and controls
+
+Existing native activation, inventory and read traces and Papyrus pickup/removal brackets are observation-only. A read sequence is a read-call ID; inventory queue sequence identifies a notification, not the same physical book. Compare session, IDs, endpoints and capture times as **candidate correlations** only; preserve missing IDs and delayed UI samples. No new transaction ID is warranted until an outer boundary actually propagates it across callbacks. Existing diagnostics cannot prove a link to the Papyrus handler; no new probe was installed for this investigation.
+
+08E observed an unrelated tome learning, TAKE, ordinary and skill-book behavior on a disposable save with the forwarding entry probe. 08F observed repeated Firebolt inventory denials and a reported retained tome, plus restoration of forwarding learning; exact counts and some controls were not independently verified. The 08F unrelated-tome, TAKE, ordinary and skill-book controls remain uncompleted. These earlier results do not substitute for a complete controlled run of the current build.
+
+## Implementation sequence
+
+1. Audit and validate a pre-pickup outer interaction boundary with forwarding-only diagnostics, including Read Or Take present/absent and competing hooks. Capture the call chain and whether one operation remains on one thread. No behavioral veto yet.
+2. Prove how transaction identity reaches both the native decision and the asynchronous pickup consumer, or implement native ownership for a complete, explicitly bounded path with an atomic mode handshake. Include missing or overflow behavior and load transitions.
+3. Define and test a stable copy identity across stack merging, transfer and save/load. Until then return Unavailable for same-copy AlreadyHandled and document the fail-open tradeoff.
+4. Only after these invariants hold, test synchronous denial and exactly one effect with Papyrus removal disabled for the native-owned path. Cover duplicate copies, rapid interactions, quest/stolen items, safe contexts, purchases, save/load and conflicting plugins. Validate each runtime independently; no unverified 1.6.1170 hook.

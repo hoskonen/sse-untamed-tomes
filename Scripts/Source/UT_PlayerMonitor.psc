@@ -81,8 +81,12 @@ EndFunction
 Function Log(string msg)
     if DebugOn()
         Debug.Trace("[UntamedTomes] " + msg)
-        Debug.Notification("[Untamed Tomes] " + msg)
     endif
+EndFunction
+
+String Function UT_GetMenuSnapshot()
+    return " menuMode=" + Utility.IsInMenuMode() + " inventory=" + UI.IsMenuOpen("InventoryMenu") \
+        + " container=" + UI.IsMenuOpen("ContainerMenu") + " barter=" + UI.IsMenuOpen("BarterMenu")
 EndFunction
 
 String Function UT_GetTomeLocationContext()
@@ -140,26 +144,17 @@ String Function UT_GetTomeLocationContext()
     return "other"
 EndFunction
 
-Bool Function UT_IsSafeTomeContext()
+String Function UT_GetPickupContext()
     ; 0) Trading menu open? Treat as safe, regardless of location.
     if UT_IsBarterMenuOpen()
-        return true
+        return "barter"
     endif
 
-    String ctx = UT_GetTomeLocationContext()
+    return UT_GetTomeLocationContext()
+EndFunction
 
-    if ctx == "town"
-        return true
-    endif
-    if ctx == "inn"
-        return true
-    endif
-    if ctx == "store"
-        return true
-    endif
-
-    ; Everything else (dungeon / other / no-location) is unsafe for now
-    return false
+Bool Function UT_IsSafeTomeContext(String ctx)
+    return ctx == "barter" || ctx == "town" || ctx == "inn" || ctx == "store"
 EndFunction
 
 
@@ -169,112 +164,105 @@ EndEvent
 
 
 Event OnItemAdded(Form akBaseItem, int aiCount, ObjectReference akItemRef, ObjectReference akSourceContainer)
-    ; 0) Mod enabled?
+    Bool debugPickup = DebugOn()
+    Float enteredAt = 0.0
+    if debugPickup
+        enteredAt = Utility.GetCurrentRealTime()
+    endif
+
     if UT_ModEnabled != None
         if UT_ModEnabled.GetValueInt() == 0
             return
         endif
     endif
 
-    if akBaseItem == None
+    if akBaseItem == None || MagicTomeKeyword == None
         return
     endif
-
-    ; 1) Only care about spell tomes
-    if MagicTomeKeyword == None
-        ; Misconfigured, fail safe
-        return
-    endif
-
     if !akBaseItem.HasKeyword(MagicTomeKeyword)
         return
     endif
 
-    ; --- Debug: context probe for this tome pickup ---
-    if DebugOn()
-        String ctx = UT_GetTomeLocationContext()
-        String msg = "Untamed Tomes: this tome is in " + ctx
-        Debug.Notification(msg)
-        Debug.Trace("[UntamedTomes] Tome context = " + ctx)
+    String tracePrefix
+    if debugPickup
+        Float identifiedAt = Utility.GetCurrentRealTime()
+        tracePrefix = "[UntamedTomes][Pickup entry=" + enteredAt + " item=" + akBaseItem + "] "
+        Debug.Trace(tracePrefix + "identified at=" + identifiedAt + " elapsed=" + (identifiedAt - enteredAt) \
+            + " count=" + aiCount + " ref=" + akItemRef + " source=" + akSourceContainer + UT_GetMenuSnapshot())
     endif
 
-        ; --- Debug: detect bartering context ---
-    if DebugOn()
-        if UT_IsBarterMenuOpen()
-            Debug.Trace("[UntamedTomes] BarterMenu is open when tome was added.")
-        endif
+    UT_HandleTomePickup(akBaseItem, akItemRef, debugPickup, enteredAt, tracePrefix)
+
+    if debugPickup
+        Float probeStartedAt = Utility.GetCurrentRealTime()
+        String probePrefix = tracePrefix + "metadata "
+        Debug.Trace(probePrefix + "begin elapsed=" + (probeStartedAt - enteredAt))
+        UT_InspectTome(akBaseItem, probePrefix)
+        Debug.Trace(probePrefix + "end probeElapsed=" + (Utility.GetCurrentRealTime() - probeStartedAt))
     endif
+EndEvent
 
-      ; --- Debug: mark context as SAFE / UNSAFE ---
-    if DebugOn()
-        Bool safe = UT_IsSafeTomeContext()
-
-        String label = "Unsafe"
-        if safe
-            label = "Safe"
-        endif
-
-        Debug.Notification("Untamed Tomes: context is " + label)
-        Debug.Trace("[UntamedTomes] Tome context is " + label)
+Function UT_HandleTomePickup(Form akBaseItem, ObjectReference akItemRef, Bool debugPickup, Float enteredAt, String tracePrefix)
+    String ctx = UT_GetPickupContext()
+    Bool safe = UT_IsSafeTomeContext(ctx)
+    if debugPickup
+        Debug.Trace(tracePrefix + "context gate 1 elapsed=" + (Utility.GetCurrentRealTime() - enteredAt) + " context=" + ctx + " safe=" + safe)
     endif
-
-         ; --- Context-based safety gate (shops / inns / towns) ---
-    if UT_IsSafeTomeContext()
-        if DebugOn()
-            Log("Safe context detected (" + UT_GetTomeLocationContext() + "), skipping Untamed logic.")
+    if safe
+        if debugPickup
+            Debug.Trace(tracePrefix + "decision=accept-safe-context")
         endif
         return
     endif
 
-    ; 2) Exclusions
-
-    ; 2a) Marked safe via keyword (quest tomes, neutralized tomes, etc.)
     if UT_TomeSafe != None
         if akBaseItem.HasKeyword(UT_TomeSafe)
-            Log("Tome marked safe via UT_TomeSafe keyword, skipping.")
+            if debugPickup
+                Debug.Trace(tracePrefix + "decision=accept-safe-keyword elapsed=" + (Utility.GetCurrentRealTime() - enteredAt))
+            endif
             return
         endif
     endif
 
-    ; --- Context-based safety gate (shops / inns / towns) ---
-    if UT_IsSafeTomeContext()
-        if DebugOn()
-            Log("Safe context detected, skipping Untamed logic.")
+    ; Keep the second safety gate while measuring the existing pipeline.
+    ctx = UT_GetPickupContext()
+    safe = UT_IsSafeTomeContext(ctx)
+    if debugPickup
+        Debug.Trace(tracePrefix + "context gate 2 elapsed=" + (Utility.GetCurrentRealTime() - enteredAt) + " context=" + ctx + " safe=" + safe)
+    endif
+    if safe
+        if debugPickup
+            Debug.Trace(tracePrefix + "decision=accept-safe-context")
         endif
         return
     endif
 
-    ; 2b) In explicit exclusion list
     if UT_TomeExclusions != None
         if UT_TomeExclusions.HasForm(akBaseItem)
-            Log("Tome found in UT_TomeExclusions, skipping.")
+            if debugPickup
+                Debug.Trace(tracePrefix + "decision=accept-exclusion elapsed=" + (Utility.GetCurrentRealTime() - enteredAt))
+            endif
             return
         endif
     endif
 
-        ; 2c) Quest item instance – don't nuke main quest stuff
-    ; Uses powerofthree's Papyrus Extender: PO3_SKSEFunctions.IsQuestItem(ObjectReference)
     if akItemRef != None
         if PO3_SKSEFunctions.IsQuestItem(akItemRef)
-            Log("Tome instance is quest item (PO3), skipping.")
+            if debugPickup
+                Debug.Trace(tracePrefix + "decision=accept-quest-reference elapsed=" + (Utility.GetCurrentRealTime() - enteredAt))
+            endif
             return
         endif
     endif
 
-    ; 2d) Vendor tomes – purchased, already neutralized - vendor container do not have keywords?!
-    ; if akSourceContainer != None && VendorChestKeyword != None
-    ;     if akSourceContainer.HasKeyword(VendorChestKeyword)
-    ;         Log("Tome came from vendor chest, skipping.")
-    ;         return
-    ;     endif
-    ; endif
-
-    ; 3) Get player & magicka
     Actor player = GetReference() as Actor
     if player == None
         player = Game.GetPlayer()
     endif
     if player == None
+        if debugPickup
+            Debug.Trace(tracePrefix + "decision=abort-no-player elapsed=" + (Utility.GetCurrentRealTime() - enteredAt))
+        endif
         return
     endif
 
@@ -282,39 +270,212 @@ Event OnItemAdded(Form akBaseItem, int aiCount, ObjectReference akItemRef, Objec
     UT_EnsureBaseline(player)
     UT_IsClearlyNonMage(player)
 
-    float threshold = 0.0
+    Float threshold = 0.0
     if UT_MagickaThreshold != None
         threshold = UT_MagickaThreshold.GetValue()
     endif
-
-    float magicka = player.GetBaseActorValue("Magicka")
-
-    if DebugOn()
-        Log("Picked up tome " + akBaseItem + " | Magicka=" + magicka + " Threshold=" + threshold)
+    Float magicka = player.GetBaseActorValue("Magicka")
+    Bool eligible = magicka >= threshold
+    if debugPickup
+        Debug.Trace(tracePrefix + "decision elapsed=" + (Utility.GetCurrentRealTime() - enteredAt) \
+            + " eligible=" + eligible + " baseMagicka=" + magicka + " threshold=" + threshold)
     endif
-
-    ; 4) If magicka is high enough, accept the tome
-    if magicka >= threshold
+    if eligible
         return
     endif
 
-    ; 5) Not enough magicka -> tome rejects you and vanishes
-
-    ; For now: always remove exactly 1 tome.
-    ; (Later you can decide how to handle stacks / Take All behavior.)
-    int countToRemove = 1
-
-    ; Safety: if somehow the player doesn't actually have it, don't crash logic.
-    int invCount = player.GetItemCount(akBaseItem)
+    Int invCount = player.GetItemCount(akBaseItem)
     if invCount <= 0
-        Log("Player has no copies of tome to remove; aborting.")
+        if debugPickup
+            Debug.Trace(tracePrefix + "removal=skipped-empty-inventory elapsed=" + (Utility.GetCurrentRealTime() - enteredAt))
+        endif
         return
     endif
 
-    player.RemoveItem(akBaseItem, countToRemove, true) ; silent removal
-
-    if DebugOn()
-        Debug.Notification("The untamed tome rejects you.")
-        Log("Removed one copy of tome due to insufficient magicka.")
+    String removalMenus
+    Float beforeRemoval = 0.0
+    if debugPickup
+        removalMenus = UT_GetMenuSnapshot()
+        beforeRemoval = Utility.GetCurrentRealTime()
     endif
-EndEvent
+
+    player.RemoveItem(akBaseItem, 1, true)
+
+    if debugPickup
+        Float afterRemoval = Utility.GetCurrentRealTime()
+        Debug.Trace(tracePrefix + "before RemoveItem elapsed=" + (beforeRemoval - enteredAt) + " baseCount=" + invCount + removalMenus)
+        Debug.Trace(tracePrefix + "after RemoveItem elapsed=" + (afterRemoval - enteredAt) \
+            + " callElapsed=" + (afterRemoval - beforeRemoval) + UT_GetMenuSnapshot())
+    endif
+EndFunction
+
+Int Function UT_GetTierIndex(Int minimumSkill)
+    ; Only canonical effect minimum-skill values are supported.
+    if minimumSkill < 0 || minimumSkill > 100 || minimumSkill % 25 != 0
+        return -1
+    endif
+    return minimumSkill / 25
+EndFunction
+
+String Function UT_GetTierName(Int tier)
+    if tier == 0
+        return "Novice"
+    elseif tier == 1
+        return "Apprentice"
+    elseif tier == 2
+        return "Adept"
+    elseif tier == 3
+        return "Expert"
+    elseif tier == 4
+        return "Master"
+    endif
+    return "unresolved"
+EndFunction
+
+Bool Function UT_IsMagicSchool(String school)
+    return school == "Alteration" || school == "Conjuration" || school == "Destruction" \
+        || school == "Illusion" || school == "Restoration"
+EndFunction
+
+Float Function UT_Clamp(Float value, Float lower, Float upper)
+    if value < lower
+        return lower
+    elseif value > upper
+        return upper
+    endif
+    return value
+EndFunction
+
+Function UT_LogCompetence(Actor player, String school, Int tier, String prefix)
+    if player == None
+        Debug.Trace(prefix + "competence=unresolved reason=no-player")
+        return
+    endif
+
+    Float magicka = player.GetBaseActorValue("Magicka")
+    Float skill = player.GetBaseActorValue(school)
+    Float contribution = UT_Clamp((magicka - 100.0) / 5.0, -10.0, 30.0)
+    Float competence = UT_Clamp(skill, 0.0, 100.0) + contribution
+    Float target = 15.0 + 20.0 * tier
+    Float margin = competence - target
+    String outcome = "safe"
+    if margin < 0.0
+        outcome = "unsafe"
+    endif
+
+    Debug.Trace(prefix + "baseMagicka=" + magicka + " baseSchoolSkill=" + skill + " magickaContribution=" + contribution \
+        + " competence=" + competence + " target=" + target + " margin=" + margin + " predicted=" + outcome)
+    if margin < 0.0
+        Debug.Trace(prefix + "predictedSeverity=" + UT_Clamp(-margin / 40.0, 0.0, 1.0))
+    endif
+EndFunction
+
+Function UT_InspectTome(Form baseItem, String prefix)
+    Debug.Trace(prefix + "bookFormID=" + baseItem.GetFormID())
+    Book tome = baseItem as Book
+    if tome == None
+        Debug.Trace(prefix + "status=unresolved reason=tagged-form-is-not-a-book")
+        return
+    endif
+
+    Spell taughtSpell = tome.GetSpell()
+    if taughtSpell == None
+        Debug.Trace(prefix + "status=unresolved reason=no-taught-spell")
+        return
+    endif
+
+    Int spellType = PO3_SKSEFunctions.GetSpellType(taughtSpell)
+    Int effectCount = taughtSpell.GetNumEffects()
+    Int baseCost = taughtSpell.GetMagickaCost()
+    Perk halfCostPerk = taughtSpell.GetPerk()
+    Debug.Trace(prefix + "spellFormID=" + taughtSpell.GetFormID() + " spellType=" + spellType \
+        + " effectCount=" + effectCount + " baseCostRaw=" + baseCost)
+    if halfCostPerk != None
+        Debug.Trace(prefix + "halfCostPerkFormID=" + halfCostPerk.GetFormID())
+    else
+        Debug.Trace(prefix + "halfCostPerk=none")
+    endif
+    if baseCost < 0
+        Debug.Trace(prefix + "baseCostStatus=invalid-or-unset")
+    endif
+
+    Int primaryIndex = -1
+    if effectCount > 0
+        primaryIndex = taughtSpell.GetCostliestEffectIndex()
+        Debug.Trace(prefix + "costliestEffectIndex=" + primaryIndex)
+        if primaryIndex == 0
+            Debug.Trace(prefix + "costliestIndexNote=SKSE-also-returns-zero-when-no-costliest-effect-is-found")
+        endif
+    else
+        Debug.Trace(prefix + "costliestEffectIndex=unavailable")
+    endif
+
+    String primarySchool
+    Int primaryTier = -1
+    Int primaryMinimumSkill
+    Bool missingEffect = false
+    Bool conflictingEffects = false
+    String firstSchool
+    Int firstMinimumSkill
+    Bool foundEffect = false
+    Int index = 0
+    while index < effectCount
+        MagicEffect effect = taughtSpell.GetNthEffectMagicEffect(index)
+        if effect == None
+            missingEffect = true
+            Debug.Trace(prefix + "effectIndex=" + index + " status=missing-effect")
+        else
+            String school = effect.GetAssociatedSkill()
+            Int minimumSkill = effect.GetSkillLevel()
+            Debug.Trace(prefix + "effectIndex=" + index + " effectFormID=" + effect.GetFormID() \
+                + " school=[" + school + "] minimumSkill=" + minimumSkill)
+            if !foundEffect
+                firstSchool = school
+                firstMinimumSkill = minimumSkill
+                foundEffect = true
+            elseif school != firstSchool || minimumSkill != firstMinimumSkill
+                conflictingEffects = true
+            endif
+            if index == primaryIndex
+                primarySchool = school
+                primaryMinimumSkill = minimumSkill
+                primaryTier = UT_GetTierIndex(minimumSkill)
+            endif
+        endif
+        index += 1
+    endwhile
+
+    Actor player = GetReference() as Actor
+    if player == None
+        player = Game.GetPlayer()
+    endif
+    if player != None && spellType == 0 && foundEffect && !missingEffect
+        Int effectiveCost = taughtSpell.GetEffectiveMagickaCost(player)
+        Debug.Trace(prefix + "effectiveCostRaw=" + effectiveCost)
+        if effectiveCost < 0
+            Debug.Trace(prefix + "effectiveCostStatus=invalid-or-unset")
+        endif
+    else
+        Debug.Trace(prefix + "effectiveCost=unavailable reason=no-player-or-unsupported-spell-data")
+    endif
+
+    if spellType != 0
+        Debug.Trace(prefix + "status=unresolved reason=unsupported-spell-type")
+    elseif effectCount <= 0
+        Debug.Trace(prefix + "status=unresolved reason=no-effects")
+    elseif primaryIndex < 0 || primaryIndex >= effectCount
+        Debug.Trace(prefix + "status=unresolved reason=invalid-costliest-index")
+    elseif missingEffect
+        Debug.Trace(prefix + "status=unresolved reason=missing-effect")
+    elseif conflictingEffects
+        Debug.Trace(prefix + "status=ambiguous reason=effects-disagree candidateSchool=[" + primarySchool \
+            + "] candidateMinimumSkill=" + primaryMinimumSkill + " candidateTier=" + UT_GetTierName(primaryTier))
+    elseif !UT_IsMagicSchool(primarySchool)
+        Debug.Trace(prefix + "status=unresolved reason=unsupported-school school=[" + primarySchool + "]")
+    elseif primaryTier < 0
+        Debug.Trace(prefix + "status=unresolved reason=noncanonical-minimum-skill minimumSkill=" + primaryMinimumSkill)
+    else
+        Debug.Trace(prefix + "status=resolved school=" + primarySchool + " tier=" + UT_GetTierName(primaryTier))
+        UT_LogCompetence(player, primarySchool, primaryTier, prefix)
+    endif
+EndFunction

@@ -8,7 +8,7 @@ Untamed Tomes is a Skyrim Special Edition / Anniversary Edition mod. Wild spell 
 | --- | --- |
 | [UT_PlayerMonitor.psc](../Scripts/Source/UT_PlayerMonitor.psc) | A `ReferenceAlias` script designed to receive the player's `OnItemAdded` events. It identifies tomes, applies safety gates and silently removes one copy when base Magicka is below the configured threshold. |
 | [UT_MCM.psc](../Scripts/Source/UT_MCM.psc) | A SkyUI `SKI_ConfigBase` script with enable and debug toggles and a Required Magicka slider. It writes the globals read by the monitor. |
-| [ESP snapshot](../UntamedTomes.esp) | Versioned copy of the MO2 development plugin. The imported file contains only the TES4 header. The [audit](02-current-state-audit.md) records the expected runtime bindings. |
+| [ESP snapshot](../UntamedTomes.esp) | Versioned copy of the reconstructed MO2 development plugin with main and MCM quests and shared settings. The [audit](02-current-state-audit.md) records the expected runtime bindings. |
 | [skyrimse.ppj.example](../skyrimse.ppj.example) | Template for an ignored local `skyrimse.ppj`. Inputs are under `Scripts/Source`, compiled output targets `Scripts`, and packaging and zip generation are disabled. |
 | [SkyrimSE.code-workspace](../SkyrimSE.code-workspace), [meta.ini](../meta.ini), [.gitignore](../.gitignore) | VS Code Papyrus language settings, placeholder mod-manager metadata, and ignore rules for compiled PEX files and local developer settings. |
 
@@ -24,4 +24,4 @@ Untamed Tomes is a Skyrim Special Edition / Anniversary Edition mod. Wild spell 
 
 Follow the [README build instructions](../README.md#build-setup) to configure the local PPJ. The template imports the full SkyUI source directory explicitly and lists the SKSE sources ahead of the game sources to resolve extended declarations. It performs a script-only build.
 
-Task 03 generated both PEX files in a fresh build using Pyro and the installed dependency sources. Skyrim runtime verification still requires a verified ESP with script bindings and the runtime dependencies above.
+Task 06 generated both PEX files using the installed dependencies and the working Pyro project. The [MCM configuration audit](04-mcm-configuration.md) lists the remaining Skyrim runtime checks for the reconstructed ESP.
