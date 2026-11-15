@@ -16,6 +16,7 @@ Scripts/*.pex
 !/docs/investigations/08-shared-read-entry.md
 !/docs/investigations/09-read-denial-experiment.md
 !/docs/investigations/10-coordinated-protection.md
+!/docs/investigations/11-read-context-classifier.md
 !/docs/04-mcm-configuration.md
 !/docs/design/
 !/docs/design/01-tome-protection-catalogue.md
