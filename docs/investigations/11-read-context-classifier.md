@@ -4,7 +4,7 @@
 
 Task 02B proposed a future read guard that forwards reads from the player's own inventory and treats every other spell-tome read as an acquisition. That guard depends on recognising player-side reads without hard-coded caller addresses. This prototype records the evidence needed to judge that classification. It is observation only. It forwards every read, preserves the original return value, and changes no inventory, spells, Papyrus scripts or ESP records.
 
-The schema 7 build compiled and was deployed to the MO2 development mod on 15 November 2026. No Skyrim runtime trial has been run with it. Every case in the runtime matrix below is **untested**.
+The schema 7 build compiled and was deployed to the MO2 development mod on 15 November 2026. Cases A and B were run on 1.7.104 the same day with the Task 03A diagnostics build (`883459F0…`). See the runtime matrix and [Investigation 12](12-world-read-denial.md). The native and Papyrus logs are preserved as `task04-preservation/classifier-ab-*.log` in the native checkout. Cases C–H are **untested**.
 
 ## Implementation
 
@@ -61,7 +61,7 @@ The first runtime launch of schema 7 at 11:19 logged load, runtime verification,
 
 The same build now always logs one `event=tome_read_probe_config` row. The row gives the directory checked, each of the four markers as `true`/`false`, whether a filesystem check failed (`marker_check_error`), and the `selected` mode (`none`, `conflict`, `forward_only`, `call_sites`, `deny_firebolt` or `classify`). A marker found in `Data/SKSE` or `Data/SKSE/Plugins` produces `event=tome_read_marker_ignored path=... expected_directory=...` and still does not activate anything. Every refusal now carries `mode=` and `attempted=0`. `event=tome_read_probe_install attempted=1` marks the point after all guards pass. A failure in SafetyHook creation or enabling reports SafetyHook's error type, such as `error=failed_to_unprotect`. A missing log directory is reported instead of being ignored. Marker locations, guards, mutual exclusion and classification are unchanged.
 
-This build's SHA-256 is `883459F0E03970F681A8EF7D997D5C640EA793AE0BCD25EB887359D11A863C00`, copied as `classifier-preservation/classifier-diagnostics.dll` and `.pdb`. The 11:19 schema 7 build (`23613C00…`) is preserved as `classifier.dll`. Its relaunch with the marker in the corrected location has not yet been run.
+This build's SHA-256 is `883459F0E03970F681A8EF7D997D5C640EA793AE0BCD25EB887359D11A863C00`, copied as `classifier-preservation/classifier-diagnostics.dll` and `.pdb`. The 11:19 schema 7 build (`23613C00…`) is preserved as `classifier.dll`. The 11:28 relaunch, with the marker in the corrected location, logged `selected=classify`, `tome_read_probe_install attempted=1` and `tome_read_probe_ready mode=classify`. Its `marker_check_error=true` was a false positive. MSVC reports a missing file through the error code, and schema 8 ignores that case.
 
 ## Runtime checklist (Skyrim 1.7.104)
 
@@ -71,8 +71,8 @@ This build's SHA-256 is `883459F0E03970F681A8EF7D997D5C640EA793AE0BCD25EB887359D
 
 | Case | Action | Hypothesis to check | Status |
 | --- | --- | --- | --- |
-| A | World READ with Read Or Take | Earlier runs observed worker threads, which would give `unknown/off_main_thread`, `initiator=other_module` with the Read Or Take DLL as caller. A main-thread occurrence would give `world`. | Untested |
-| B | Read from the player inventory | `on_main_thread=1`, `player_inventory/inventory_menu`, caller in `SkyrimSE.exe` (earlier call site `945D97`) | Untested |
+| A | World READ with Read Or Take | Earlier runs observed worker threads, which would give `unknown/off_main_thread`, `initiator=other_module` with the Read Or Take DLL as caller. A main-thread occurrence would give `world`. | **Observed:** Firebolt on worker 19640 (main 11908), `po3_ReadOrTakeBooks.dll` caller RVA `256C`, `unknown/off_main_thread`. Original returned true, and Papyrus `skipped-empty-inventory`. |
+| B | Read from the player inventory | `on_main_thread=1`, `player_inventory/inventory_menu`, caller in `SkyrimSE.exe` (earlier call site `945D97`) | **Observed:** main thread 11908, InventoryMenu open, `SkyrimSE.exe` RVA `945D9C`, `player_inventory/inventory_menu`. Original returned true, `known_after=1`. |
 | C | Read from the player side of a ContainerMenu | `player_inventory/container_player_side` | Untested |
 | D | Read from the container side | `external_container/container_external_side`. Record whether the tome ever enters the inventory. | Untested |
 | E | Read in BarterMenu, if the menu offers it | Actual thread, side and outcome | Untested |
