@@ -48,7 +48,7 @@ There is no second hook. The 1.7.104 gate, relocation and body-hash check, call-
 
 ### Marker
 
-Use an empty file at `C:\Users\Petri Hoskonen\Documents\My Games\Skyrim Special Edition\SKSE\UntamedTomes.DenyReadOrTakeWorld`, with no other `UntamedTomes.*` experiment marker in that folder. Any second marker logs `conflicting_probe_modes` and installs nothing.
+Use an empty file at `%USERPROFILE%\Documents\My Games\Skyrim Special Edition\SKSE\UntamedTomes.DenyReadOrTakeWorld`, with no other `UntamedTomes.*` experiment marker in that folder. Any second marker logs `conflicting_probe_modes` and installs nothing.
 
 ### Decision row
 

@@ -18,6 +18,15 @@ Scripts/*.pex
 !/docs/investigations/10-coordinated-protection.md
 !/docs/investigations/11-read-context-classifier.md
 !/docs/investigations/12-world-read-denial.md
+!/docs/investigations/13-spell-tome-lifecycle-and-eligibility.md
+!/docs/investigations/14-controlled-read-enforcement.md
+!/docs/investigations/15-destified-and-first-trap.md
+!/docs/investigations/16-fire-trap-gameplay-lab.md
+!/docs/investigations/17-trap-hit-reliability.md
+!/docs/investigations/18-pre-pickup-activation.md
+!/docs/investigations/19-world-tome-handshake.md
+!/docs/investigations/20-handshake-validation-and-hardening.md
 !/docs/04-mcm-configuration.md
+!/docs/05-session-handoff.md
 !/docs/design/
 !/docs/design/01-tome-protection-catalogue.md
