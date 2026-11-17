@@ -45,7 +45,13 @@ Steps toward that contract:
       - There is no forward without an answer.
       - Generations are unique per process.
     - **Open:** study completion, save and load mid-handshake, exemptions, failure recovery in game, Read Or Take disabled, the full load order (Inv. 20 §13). Not production-ready.
-12. **Next, high priority:** a single-activation world tome. Investigate safe automatic continuation of the activation (Inv. 20 §14), then an immediate native visual reaction, then tome-origin defenses. See the [session handoff](05-session-handoff.md).
+12. **Runtime-tested in part (Inv. 21, schema 18, 17 November 2026):** single-Take acquisition. Verified: automatic pickup, two references and movement cancellation.
+    - After an accepted or exempt answer, an SKSE task re-validates the tome and replays the original activation through `ActivateRef`.
+    - A one-shot `Continuing` token stops a second forward.
+    - The replay is cancelled for owned tomes, movement, distance, menus, cell changes, loads and after 3 s, falling back to the manual second Take.
+    - The `UntamedTomes.WorldTomeManualTake` marker restores the two-Take flow.
+
+    Next: an immediate native visual reaction, then tome-origin defenses. See the [session handoff](05-session-handoff.md).
 5. **Open design questions** (Inv. 13 §12): container reads in safe locations; corpse, stolen and owned provenance; console and script additions; untagged teaching books; merchant-side reads; player feedback; fail-open versus fail-closed expiry.
 
 Known v1.0 limitations:

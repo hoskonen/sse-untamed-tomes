@@ -26,6 +26,8 @@ Scripts/*.pex
 !/docs/investigations/18-pre-pickup-activation.md
 !/docs/investigations/19-world-tome-handshake.md
 !/docs/investigations/20-handshake-validation-and-hardening.md
+!/docs/investigations/21-single-interaction-acquisition.md
+!/docs/investigations/22-native-eligibility-feasibility.md
 !/docs/04-mcm-configuration.md
 !/docs/05-session-handoff.md
 !/docs/design/

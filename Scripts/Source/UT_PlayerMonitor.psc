@@ -210,7 +210,9 @@ Event OnUTWorldTomeRequest(String asEventName, String asGeneration, Float afRequ
     if status == "rejected" && present
         UT_WorldTomeRefusal(requestId, tomeRef, receivedAt, timing)
     elseif status == "authorized" && present
-        Debug.Notification("[Untamed Tomes] " + tomeRef.GetBaseObject().GetName() + " yields. Take it again.")
+        ; Schema 18 continues the Take automatically; native code asks for a second Take only when the
+        ; continuation is cancelled (Investigation 21).
+        Debug.Notification("[Untamed Tomes] " + tomeRef.GetBaseObject().GetName() + " yields.")
         UT_ReportWorldTome(requestId, tomeRef, "feedback", "kind=authorized notification=1" + timing \
             + " papyrus_ms=" + ((Utility.GetCurrentRealTime() - receivedAt) * 1000.0) as Int)
     elseif status == "unavailable" && present

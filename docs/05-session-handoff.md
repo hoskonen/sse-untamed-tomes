@@ -2,6 +2,12 @@
 
 Start here to continue without repeating earlier investigations. Each detail below links to the investigation that holds it.
 
+> **Update (17 November 2026): schema 18 is committed and runtime-tested in part.** Single-Take pickup, two references and movement cancellation were verified in game ([Inv. 21](investigations/21-single-interaction-acquisition.md) status). [Investigation 22](investigations/22-native-eligibility-feasibility.md) recommends a native eligibility evaluator, validated first in shadow mode (Task 15B).
+> - **What it adds:** single-Take acquisition. After approval, the original activation is replayed automatically through `ActivateRef` from an SKSE task, under a one-shot `Continuing` token. [Investigation 21](investigations/21-single-interaction-acquisition.md) covers the design, the test procedure S1–S13 and the rollback.
+> - **Next recommended task:** run S1–S13. Then build the immediate native visual reaction at activation.
+>
+> The rest of this document describes the schema 17 checkpoint.
+
 ## Current state
 
 Schema 17 provides:
