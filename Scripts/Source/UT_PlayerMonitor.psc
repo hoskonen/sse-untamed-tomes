@@ -41,6 +41,19 @@ Function UT_ReportWorldTome(Int aiRequestId, ObjectReference akTome, String asSt
 ; passed so a persistent reference matches only its own grant.
 Bool Function UT_ConsumeWorldTomeGrant(Form akBaseItem, Int aiCount, ObjectReference akItemRef) global native
 
+; Native eligibility shadow (Investigation 23). Diagnostics only: the results never change a decision.
+Function UT_RegisterEligibilityForms(GlobalVariable akEnabled, GlobalVariable akThreshold, Keyword akMagicTome, Keyword akTomeSafe, FormList akExclusions, Keyword akCity, Keyword akTown, Keyword akInn, Keyword akStore, Keyword akDungeon) global native
+String Function UT_ShadowEligibility(Int aiPath, Form akBase, ObjectReference akRef, String asPapyrusOutcome, Int aiRequestId, String asPapyrusInputs) global native
+
+; Inputs the Papyrus evaluator observed, for shadow mismatch diagnostics. Scalars only (Inv. 17).
+Int UT_EvalActive
+Bool UT_EvalOverlapSeen
+String UT_EvalCtx1
+String UT_EvalCtx2
+Float UT_EvalMagicka
+Float UT_EvalThreshold
+String UT_EvalLastInputs
+
 ; Saved with the player alias script instance.
 Int UT_BaselineLevel
 Float UT_BaselineMagicSum
@@ -186,7 +199,12 @@ EndEvent
 ; Registered on every init and load. The native side ignores requests until it hears from here.
 Function UT_RegisterWorldTomeHandshake()
     RegisterForModEvent("UT_WorldTomeRequest", "OnUTWorldTomeRequest")
+    ; Schema 21: refusal feedback for a synchronous native veto (UntamedTomes.NativeWorldEligibility).
+    RegisterForModEvent("UT_WorldTomeRefused", "OnUTWorldTomeRefused")
     UT_WorldTomeHandshakeReady()
+    ; The native shadow evaluator reads exactly these ESP-bound properties (None stays None).
+    UT_RegisterEligibilityForms(UT_ModEnabled, UT_MagickaThreshold, MagicTomeKeyword, UT_TomeSafe, UT_TomeExclusions, \
+        LocTypeCity, LocTypeTown, LocTypeInn, LocTypeStore, LocTypeDungeon)
 EndFunction
 
 ; A world tome activation was vetoed before pickup. numArg is the request id, strArg the generation,
@@ -197,7 +215,9 @@ Event OnUTWorldTomeRequest(String asEventName, String asGeneration, Float afRequ
     Int generation = asGeneration as Int
     ObjectReference tomeRef = akSender as ObjectReference
     UT_ReportWorldTome(requestId, tomeRef, "received", "generation=" + generation)
+    UT_EvalLastInputs = ""
     String outcome = UT_EvaluateWorldTome(tomeRef)
+    UT_ShadowEligibility(0, None, tomeRef, outcome, requestId, UT_EvalLastInputs)
     Float decidedAt = Utility.GetCurrentRealTime()
     String status = UT_AnswerWorldTomeRequest(requestId, generation, tomeRef, outcome)
     String timing = " outcome=" + outcome + " status=" + status + " evaluate_ms=" + ((decidedAt - receivedAt) * 1000.0) as Int
@@ -221,6 +241,24 @@ Event OnUTWorldTomeRequest(String asEventName, String asGeneration, Float afRequ
             + " papyrus_ms=" + ((Utility.GetCurrentRealTime() - receivedAt) * 1000.0) as Int)
     else
         UT_ReportWorldTome(requestId, tomeRef, "no_feedback", timing + " present=" + present)
+    endif
+EndEvent
+
+; Schema 21: native code already vetoed this world tome inside the activation; only the existing
+; refusal feedback runs here. numArg is the negated decision ordinal, sender the world reference.
+Event OnUTWorldTomeRefused(String asEventName, String asSession, Float afDecision, Form akSender)
+    Float receivedAt = Utility.GetCurrentRealTime()
+    Int decisionId = afDecision as Int
+    ObjectReference tomeRef = akSender as ObjectReference
+    UT_ReportWorldTome(decisionId, tomeRef, "received", "kind=native_refusal session=" + asSession)
+    Bool present = false
+    if tomeRef != None
+        present = tomeRef.Is3DLoaded()
+    endif
+    if present
+        UT_WorldTomeRefusal(decisionId, tomeRef, receivedAt, " outcome=reject-ineligible source=native")
+    else
+        UT_ReportWorldTome(decisionId, tomeRef, "no_feedback", "source=native present=" + present)
     endif
 EndEvent
 
@@ -293,6 +331,7 @@ Event OnItemAdded(Form akBaseItem, int aiCount, ObjectReference akItemRef, Objec
     ; Every tome addition is acknowledged exactly once, after its decision and any removal.
     if UT_ModEnabled != None
         if UT_ModEnabled.GetValueInt() == 0
+            UT_ShadowEligibility(1, akBaseItem, akItemRef, "disabled", 0, "")
             UT_AcknowledgeTomeAddition(akBaseItem, aiCount, "disabled")
             return
         endif
@@ -728,6 +767,7 @@ EndEvent
 ; post-acquisition path observes progression and removes the item.
 String Function UT_HandleTomePickup(Form akBaseItem, ObjectReference akItemRef, Bool debugPickup, Float enteredAt, String tracePrefix)
     String decision = UT_EvaluateTomeEligibility(akBaseItem, akItemRef, debugPickup, enteredAt, tracePrefix)
+    UT_ShadowEligibility(1, akBaseItem, akItemRef, decision, 0, UT_EvalLastInputs)
     if decision != "accept-eligible" && decision != "reject-ineligible"
         return decision
     endif
@@ -775,7 +815,31 @@ EndFunction
 ; and no saved state. Returns accept-safe-context, accept-safe-keyword, accept-exclusion,
 ; accept-quest-reference, accept-eligible, reject-ineligible or abort-no-player.
 String Function UT_EvaluateTomeEligibility(Form akBaseItem, ObjectReference akItemRef, Bool debugPickup, Float enteredAt, String tracePrefix)
+    ; Schema 19: records the inputs the rules observe, for the native shadow comparison. Overlapping
+    ; evaluations (handlers interleave at latent calls) would mix the recorded values, so they are flagged.
+    UT_EvalActive += 1
+    if UT_EvalActive > 1
+        UT_EvalOverlapSeen = true
+    endif
+    UT_EvalCtx1 = "-"
+    UT_EvalCtx2 = "-"
+    UT_EvalMagicka = -1.0
+    UT_EvalThreshold = -1.0
+    String result = UT_EvaluateTomeEligibilityRules(akBaseItem, akItemRef, debugPickup, enteredAt, tracePrefix)
+    UT_EvalActive -= 1
+    UT_EvalLastInputs = "ctx1=" + UT_EvalCtx1 + " ctx2=" + UT_EvalCtx2 + " magicka=" + UT_EvalMagicka \
+        + " threshold=" + UT_EvalThreshold + " overlap=" + UT_EvalOverlapSeen
+    if UT_EvalActive <= 0
+        UT_EvalActive = 0
+        UT_EvalOverlapSeen = false
+    endif
+    return result
+EndFunction
+
+; The rules themselves (unchanged in schema 19 apart from the recording assignments).
+String Function UT_EvaluateTomeEligibilityRules(Form akBaseItem, ObjectReference akItemRef, Bool debugPickup, Float enteredAt, String tracePrefix)
     String ctx = UT_GetPickupContext()
+    UT_EvalCtx1 = ctx
     Bool safe = UT_IsSafeTomeContext(ctx)
     if debugPickup
         Debug.Trace(tracePrefix + "context gate 1 elapsed=" + (Utility.GetCurrentRealTime() - enteredAt) + " context=" + ctx + " safe=" + safe)
@@ -798,6 +862,7 @@ String Function UT_EvaluateTomeEligibility(Form akBaseItem, ObjectReference akIt
 
     ; Keep the second safety gate while measuring the existing pipeline.
     ctx = UT_GetPickupContext()
+    UT_EvalCtx2 = ctx
     safe = UT_IsSafeTomeContext(ctx)
     if debugPickup
         Debug.Trace(tracePrefix + "context gate 2 elapsed=" + (Utility.GetCurrentRealTime() - enteredAt) + " context=" + ctx + " safe=" + safe)
@@ -843,6 +908,8 @@ String Function UT_EvaluateTomeEligibility(Form akBaseItem, ObjectReference akIt
         threshold = UT_MagickaThreshold.GetValue()
     endif
     Float magicka = player.GetBaseActorValue("Magicka")
+    UT_EvalMagicka = magicka
+    UT_EvalThreshold = threshold
     Bool eligible = magicka >= threshold
     if debugPickup
         Debug.Trace(tracePrefix + "decision elapsed=" + (Utility.GetCurrentRealTime() - enteredAt) \

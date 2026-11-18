@@ -2,6 +2,9 @@
 
 Start here to continue without repeating earlier investigations. Each detail below links to the investigation that holds it.
 
+> **Update (18 November 2026): schema 19 shadow evaluator, deployed and uncommitted.** World-path parity is 13 of 13, at 4–9 µs per decision ([Investigation 23](investigations/23-native-eligibility-shadow.md)). It found a defect: with the mod disabled, world tomes are refused (§11).
+> - **Next:** fix the §11 and §13 prerequisites, run the container session (§12), then Task 15C (§15).
+>
 > **Update (17 November 2026): schema 18 is committed and runtime-tested in part.** Single-Take pickup, two references and movement cancellation were verified in game ([Inv. 21](investigations/21-single-interaction-acquisition.md) status). [Investigation 22](investigations/22-native-eligibility-feasibility.md) recommends a native eligibility evaluator, validated first in shadow mode (Task 15B).
 > - **What it adds:** single-Take acquisition. After approval, the original activation is replayed automatically through `ActivateRef` from an SKSE task, under a one-shot `Continuing` token. [Investigation 21](investigations/21-single-interaction-acquisition.md) covers the design, the test procedure S1–S13 and the rollback.
 > - **Next recommended task:** run S1–S13. Then build the immediate native visual reaction at activation.
